@@ -19,6 +19,8 @@ const dealRoutes = require("./routes/deals");
 const activityRoutes = require("./routes/activities");
 const dashboardRoutes = require("./routes/dashboard");
 const communicationRoutes = require("./routes/communicationRoutes");
+const taskRoutes = require("./routes/tasks");
+const visitRoutes = require("./routes/visits");
 
 const app = express();
 
@@ -28,7 +30,7 @@ app.use(helmet());
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 5000, // Increased for development polling
 });
 app.use(limiter);
 
@@ -54,6 +56,8 @@ app.use("/api/deals", dealRoutes);
 app.use("/api/activities", activityRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/communications", communicationRoutes);
+app.use("/api/tasks", taskRoutes);
+app.use("/api/visits", visitRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "OK", timestamp: new Date().toISOString() });

@@ -9,6 +9,7 @@ const {
   deleteLead,
   getKanbanLeads,
   respondToAssignment,
+  updateLeadStatus,
 } = require("../controllers/leadController");
 
 const router = express.Router();
@@ -88,6 +89,7 @@ router.get("/:id", agentOrAdminAuth, getLead);
 router.post("/", agentOrAdminAuth, createLeadValidation, createLead);
 router.put("/:id", agentOrAdminAuth, updateLeadValidation, updateLead);
 router.put("/:id/respond", agentOrAdminAuth, respondToAssignment);
+router.patch("/:id/status", agentOrAdminAuth, updateLeadStatus);
 router.delete("/:id", agentOrAdminAuth, deleteLead);
 
 module.exports = router;

@@ -326,6 +326,50 @@ const getKanbanLeads = async (req, res) => {
   }
 };
 
+const updateLeadStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+
+    // Validate status
+    if (
+      !["new", "contacted", "visit", "negotiation", "closed", "lost"].includes(
+        status,
+      )
+    ) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid status" });
+    }
+
+    const lead = await Lead.findById(req.params.id);
+
+    if (!lead) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Lead not found" });
+    }
+
+    // Check permissions
+    if (
+      req.user.role === "agent" &&
+      lead.assignedAgent?.toString() !== req.user._id.toString()
+    ) {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
+
+    lead.status = status;
+    await lead.save();
+
+    res.json({
+      success: true,
+      message: "Lead status updated successfully",
+      data: lead,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   getLeads,
   getLead,
@@ -334,4 +378,5 @@ module.exports = {
   deleteLead,
   getKanbanLeads,
   respondToAssignment,
+  updateLeadStatus,
 };

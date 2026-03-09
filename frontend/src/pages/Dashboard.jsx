@@ -6,7 +6,7 @@ import {
   CalendarIcon, PhoneIcon, TrophyIcon, StarIcon,
   ChevronRightIcon, PlusIcon, BuildingOfficeIcon,
   ArrowUpIcon, ArrowDownIcon, FireIcon, SparklesIcon,
-  MapPinIcon, ChartBarIcon,
+  MapPinIcon, ChartBarIcon, ClipboardDocumentListIcon
 } from '@heroicons/react/24/outline';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -23,7 +23,11 @@ import {
 import AddLeadModal      from '../components/modals/AddLeadModal';
 import AddPropertyModal  from '../components/modals/AddPropertyModal';
 import CreateDealModal   from '../components/modals/CreateDealModal';
-import ScheduleVisitModal from '../components/modals/ScheduleVisitModal';
+import ScheduleVisitModal from '../components/visits/ScheduleVisitModal';
+import AddTaskModal from '../components/tasks/AddTaskModal';
+import TaskList from '../components/tasks/TaskList';
+import VisitList from '../components/visits/VisitList';
+import LeadPipeline from '../components/pipeline/LeadPipeline';
 
 /* ══  COLOR SYSTEM  ══════════════════════════════════════════ */
 const C = {
@@ -545,218 +549,301 @@ const FollowUps = ({ followUps, onComplete }) => (
 );
 
 /* ══  QUICK ACTIONS  ═════════════════════════════════════════ */
-const QuickActions = ({ onAddLead, onAddProperty, onCreateDeal, onSchedule }) => (
-  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-    {[
-      { label: 'Add Lead',     color: C.purple, onClick: onAddLead },
-      { label: 'Add Property', color: C.cyan,   onClick: onAddProperty },
-      { label: 'Create Deal',  color: C.indigo, onClick: onCreateDeal },
-      { label: 'Schedule',     color: C.gold,   onClick: onSchedule },
-    ].map((a, i) => (
-      <button key={i} onClick={a.onClick} style={{
-        display: 'inline-flex', alignItems: 'center', gap: 6,
-        padding: '8px 16px', borderRadius: 12, border: `1px solid ${a.color}35`,
-        background: `${a.color}12`, color: a.color, fontSize: 12, fontWeight: 700,
-        cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
-      }}
-        onMouseEnter={e => { e.currentTarget.style.background = `${a.color}22`; e.currentTarget.style.borderColor = `${a.color}55`; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-        onMouseLeave={e => { e.currentTarget.style.background = `${a.color}12`; e.currentTarget.style.borderColor = `${a.color}35`; e.currentTarget.style.transform = ''; }}
-      >
-        <PlusIcon style={{ width: 13, height: 13 }} />{a.label}
-      </button>
-    ))}
-  </div>
-);
+const QuickActions = ({ onAddLead, onAddProperty, onCreateDeal, onSchedule, onAssignTask, isAdmin }) => {
+  const actions = [
+    { label: 'Add Lead',     color: C.purple, onClick: onAddLead },
+    { label: 'Add Property', color: C.cyan,   onClick: onAddProperty },
+    { label: 'Create Deal',  color: C.indigo, onClick: onCreateDeal },
+    { label: 'Schedule',     color: C.gold,   onClick: onSchedule },
+  ];
+
+  if (isAdmin) {
+    actions.push({ label: 'Assign Task', color: C.pink, onClick: onAssignTask, icon: ClipboardDocumentListIcon });
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      {actions.map((a, i) => {
+        const Icon = a.icon || PlusIcon;
+        return (
+          <button key={i} onClick={a.onClick} style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '8px 16px', borderRadius: 12, border: `1px solid ${a.color}35`,
+            background: `${a.color}12`, color: a.color, fontSize: 12, fontWeight: 700,
+            cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
+          }}
+            onMouseEnter={e => { e.currentTarget.style.background = `${a.color}22`; e.currentTarget.style.borderColor = `${a.color}55`; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = `${a.color}12`; e.currentTarget.style.borderColor = `${a.color}35`; e.currentTarget.style.transform = ''; }}
+          >
+            <Icon style={{ width: 13, height: 13 }} />{a.label}
+          </button>
+        )
+      })}
+    </div>
+  );
+};
 
 /* ══════════════════════════════════════════════════
    AGENT PREMIUM DASHBOARD
 ══════════════════════════════════════════════════ */
-const AgentDashboard = ({ user, stats, leads, todayFollowUps, completeFollowUp, handleRespondAssignment, loading, kpis }) => {
+const AgentDashboard = ({ user, stats, leads, tasks, visits, completeTask, updateVisitStatus, handleRespondAssignment, handleRespondTask, loading, kpis, onAddTask, onScheduleVisit }) => {
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', background: '#0a0a0c' }}>
-      <div style={{ width: 20, height: 20, borderRadius: '50%', border: `2px solid #14b8a6`, borderTopColor: 'transparent', animation: 'spin 0.7s linear infinite' }} />
+      <div style={{ width: 40, height: 40, borderRadius: '50%', border: `3px solid rgba(20,184,166,0.3)`, borderTopColor: '#14b8a6', animation: 'spin 0.8s ease-in-out infinite' }} />
     </div>
   );
 
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', gap: 24, paddingBottom: 60, minHeight: '100vh',
-      background: '#0a0a0c', // Deep obsidian
+      background: '#0a0a0c', // Deep obsidian base
       backgroundImage: `
         radial-gradient(circle at 15% 0%, rgba(20,184,166,0.05) 0%, transparent 40%),
-        radial-gradient(circle at 85% 20%, rgba(14,165,233,0.04) 0%, transparent 35%)
+        radial-gradient(circle at 85% 20%, rgba(139,92,246,0.06) 0%, transparent 35%),
+        linear-gradient(180deg, rgba(20,184,166,0.01) 0%, transparent 100%)
       `,
       fontFamily: 'Inter, sans-serif'
     }}>
       <style>{`
-        .agent-card {
-          background: rgba(18, 18, 20, 0.6);
-          backdrop-filter: blur(20px);
-          -webkit-backdrop-filter: blur(20px);
-          border: 1px solid rgba(255,255,255,0.05);
-          border-radius: 16px;
-          box-shadow: 0 4px 24px -4px rgba(0,0,0,0.4);
+        .agt-bento {
+          background: rgba(18, 18, 22, 0.7);
+          backdrop-filter: blur(24px);
+          -webkit-backdrop-filter: blur(24px);
+          border: 1px solid rgba(255,255,255,0.04);
+          border-radius: 24px;
+          box-shadow: 0 8px 32px -8px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.02);
+          overflow: hidden;
         }
-        .text-gradient {
-          background: linear-gradient(135deg, #fff 0%, #14b8a6 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
+        .agt-glass-btn {
+          background: rgba(255,255,255,0.03);
+          border: 1px solid rgba(255,255,255,0.08);
+          color: #fff;
+          padding: 8px 16px;
+          border-radius: 12px;
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .agt-glass-btn:hover {
+          background: rgba(255,255,255,0.08);
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .agt-task-item {
+          transition: all 0.2s;
+        }
+        .agt-task-item:hover {
+          background: rgba(255,255,255,0.03) !important;
+          transform: translateX(4px);
+        }
+        .agt-hide-scroll::-webkit-scrollbar {
+          width: 4px;
+        }
+        .agt-hide-scroll::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .agt-hide-scroll::-webkit-scrollbar-thumb {
+          background: rgba(255,255,255,0.1);
+          border-radius: 4px;
         }
       `}</style>
 
-      {/* HEADER: No Quick Actions, Pure Focus */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0' }}>
+      {/* HEADER: Premium Greeting */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 0 8px' }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: C.cyan, boxShadow: `0 0 12px ${C.cyan}` }}></div>
-            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: C.cyan }}>
-              Agent Workspace Active
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#14b8a6', boxShadow: `0 0 12px #14b8a6` }}></div>
+            <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.25em', textTransform: 'uppercase', color: '#14b8a6' }}>
+              Agent Terminal
             </span>
           </div>
           <h1 style={{ 
-            margin: 0, fontSize: 34, fontWeight: 900, letterSpacing: '-0.03em', lineHeight: 1.1,
-            background: `linear-gradient(135deg, #FFFFFF 0%, ${C.cyan} 60%, ${C.purple} 100%)`,
-            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-            textShadow: '0 2px 10px rgba(0,0,0,0.2)'
+            margin: 0, fontSize: 38, fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1.1,
+            color: '#fff'
           }}>
-            {getGreeting()},{' '}
-            <span style={{ color: '#fff', WebkitTextFillColor: '#fff', fontWeight: 800 }}>
-              {user?.name?.split(' ')[0]}
+            Ready to close,{' '}
+            <span style={{ 
+              background: `linear-gradient(135deg, #14b8a6 0%, #38bdf8 100%)`, 
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'
+            }}>
+              {user?.name?.split(' ')[0]}?
             </span>
           </h1>
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: 6, fontWeight: 500 }}>
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} — Review your actionable items below.
+          <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', marginTop: 8, fontWeight: 500 }}>
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })} — Your daily command center.
           </p>
+        </div>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <button className="agt-glass-btn" onClick={onScheduleVisit} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <MapPinIcon style={{ width: 14, height: 14, color: '#38bdf8' }} /> Schedule Visit
+          </button>
+          <button className="agt-glass-btn" onClick={onAddTask} style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#14b8a6', color: '#000', border: 'none' }}>
+            <ClipboardDocumentListIcon style={{ width: 14, height: 14 }} /> New Task
+          </button>
         </div>
       </div>
 
-      {/* KEY METRICS GRID */}
+      {/* METRICS ROW */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
         {kpis.map((k, i) => (
-          <div key={i} className="agent-card" style={{ padding: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: `${k.color}15`, color: k.color, 
-                            display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <k.icon style={{ width: 18, height: 18 }} />
-              </div>
-              <span style={{ fontSize: 12, fontWeight: 700, color: k.color, background: `${k.color}10`, padding: '2px 8px', borderRadius: 100 }}>
-                {k.trend}
-              </span>
+          <div key={i} className="agt-bento" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ 
+              width: 52, height: 52, borderRadius: 16, background: `linear-gradient(135deg, ${k.color}15 0%, rgba(255,255,255,0.02) 100%)`, 
+              color: k.color, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              border: `1px solid ${k.color}20`
+            }}>
+              <k.icon style={{ width: 24, height: 24 }} />
             </div>
-            <div style={{ marginTop: 24 }}>
-              <div style={{ fontSize: 26, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em' }}>{k.value}</div>
-              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 2, fontWeight: 500 }}>{k.label}</div>
+            <div>
+              <div style={{ fontSize: 28, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em', lineHeight: 1 }}>{k.value}</div>
+              <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 6, fontWeight: 600 }}>{k.label}</div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* BENTO GRID ACTION CENTER */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 400px', gap: 16, alignItems: 'start' }}>
-        <div className="agent-card" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+      {/* MAIN BENTO GRID */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 16, alignItems: 'start' }}>
+        
+        {/* LEFT COLUMN: ACTIVE LEADS */}
+        <div className="agt-bento" style={{ padding: 0, display: 'flex', flexDirection: 'column', minHeight: 480 }}>
+          <div style={{ padding: '24px 24px 16px', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <h2 style={{ fontSize: 18, fontWeight: 800, color: '#fff', margin: 0 }}>Action Queue</h2>
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: '4px 0 0 0' }}>Review and accept new leads</p>
+              <h2 style={{ fontSize: 18, fontWeight: 800, color: '#fff', margin: 0 }}>Active Leads & Opportunities</h2>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: '4px 0 0' }}>Organized by absolute urgency</p>
+            </div>
+            <div style={{ background: 'rgba(20,184,166,0.1)', color: '#14b8a6', padding: '4px 12px', borderRadius: 100, fontSize: 12, fontWeight: 700 }}>
+              {leads.length} Pending
             </div>
           </div>
           
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="agt-hide-scroll" style={{ padding: 24, overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
             {leads.length === 0 ? (
-              <div style={{ padding: 40, textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>No leads assigned yet.</div>
+              <div style={{ margin: 'auto', textAlign: 'center', padding: 40 }}>
+                <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(255,255,255,0.02)', margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <InboxIcon style={{ width: 28, height: 28, color: 'rgba(255,255,255,0.2)' }} />
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: '#fff' }}>Inbox Zero</div>
+                <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>You have no assigned leads right now.</div>
+              </div>
             ) : leads.map(l => (
-              <div key={l._id} style={{ 
-                display: 'flex', alignItems: 'center', gap: 16, padding: '16px', borderRadius: 12,
-                background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)',
-                transition: 'all 0.2s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; }}
-              >
-                <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700, color: '#fff' }}>
+              <div key={l._id || l.id} className="agt-task-item" style={{ 
+                display: 'flex', alignItems: 'center', gap: 16, padding: '16px', borderRadius: 16,
+                background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.03)'
+              }}>
+                <div style={{ 
+                  width: 48, height: 48, borderRadius: 14, 
+                  background: `linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.01) 100%)`, 
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: '#fff' 
+                }}>
                   {l.name.charAt(0)}
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{l.name}</div>
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>
-                    {l.phone} · {l.preferredPropertyType}
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>{l.name}</div>
+                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <PhoneIcon style={{ width: 10, height: 10 }} /> {l.phone}
+                    <span style={{ color: 'rgba(255,255,255,0.2)' }}>•</span>
+                    <span style={{ color: '#8b5cf6', fontWeight: 600 }}>{l.preferredPropertyType || 'Any'}</span>
                   </div>
                 </div>
                 <div>
-                  {l.assignmentStatus === 'pending' ? (
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button onClick={() => handleRespondAssignment(l._id, 'accepted')} style={{ 
-                        background: '#14b8a6', color: '#0a0a0c', border: 'none', padding: '6px 16px', borderRadius: 8, fontSize: 11, fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s'
-                      }} onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={e => e.currentTarget.style.transform = ''}>
-                        Accept
-                      </button>
-                      <button onClick={() => handleRespondAssignment(l._id, 'rejected')} style={{ 
-                        background: 'rgba(244,63,94,0.1)', color: '#f43f5e', border: '1px solid rgba(244,63,94,0.3)', padding: '6px 16px', borderRadius: 8, fontSize: 11, fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s'
-                      }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(244,63,94,0.2)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(244,63,94,0.1)'}>
-                        Reject
-                      </button>
-                    </div>
-                  ) : (
-                    <StatusBadge status={l.status} />
-                  )}
+                  <StatusBadge status={l.status} />
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="agent-card" style={{ padding: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-            <div>
-              <h2 style={{ fontSize: 18, fontWeight: 800, color: '#fff', margin: 0 }}>Follow-ups</h2>
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: '4px 0 0 0' }}>Tasks for today</p>
+        {/* RIGHT COLUMN: TASKS & VISITS */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, height: '100%' }}>
+          
+          {/* TODAY'S TASKS */}
+          <div className="agt-bento" style={{ padding: 0, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 230 }}>
+            <div style={{ padding: '20px 20px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+               <h3 style={{ fontSize: 15, fontWeight: 700, color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                 <ClipboardDocumentListIcon style={{ width: 16, height: 16, color: '#8b5cf6' }} /> My Tasks
+               </h3>
+               {tasks.filter(t => t.status !== 'completed').length > 0 && (
+                 <span style={{ fontSize: 11, color: '#8b5cf6', background: 'rgba(139,92,246,0.1)', padding: '2px 8px', borderRadius: 8, fontWeight: 700 }}>Due Today</span>
+               )}
+            </div>
+            <div className="agt-hide-scroll" style={{ padding: '0 20px 20px', flex: 1, overflowY: 'auto' }}>
+               <TaskList tasks={tasks.filter(t => t.status !== 'completed')} onComplete={completeTask} onRespondTask={handleRespondTask} />
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {todayFollowUps.length === 0 ? (
-              <div style={{ padding: 30, textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>No follow-ups today!</div>
-            ) : todayFollowUps.map(fu => {
-              const now = new Date();
-              const fuDate = new Date(fu.followUpDate);
-              const isDue = fu.status === 'due' || fuDate <= now;
-              const diffMins = Math.floor((fuDate - now) / 60000);
-              const isUrgent = isDue || diffMins < 60;
-              const timeColor = isUrgent ? '#f43f5e' : '#14b8a6';
-              const timeText = isDue ? 'Due Now' : diffMins < 60 ? `In ${diffMins}m` : `In ${Math.floor(diffMins / 60)}h`;
-
-              return (
-                <div key={fu.id} style={{
-                  display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px', borderRadius: 10,
-                  background: isUrgent ? 'rgba(244,63,94,0.05)' : 'rgba(255,255,255,0.02)',
-                  border: `1px solid ${isUrgent ? 'rgba(244,63,94,0.2)' : 'rgba(255,255,255,0.04)'}`
-                }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{fu.leadName}</div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: timeColor, marginTop: 4 }}>{timeText}</div>
-                  </div>
-                  <button onClick={() => completeFollowUp(fu.id)} style={{
-                    width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: 'rgba(20,184,166,0.1)', color: '#14b8a6', border: 'none', cursor: 'pointer', transition: 'all 0.2s'
-                  }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(20,184,166,0.2)'} onMouseLeave={e => e.currentTarget.style.background = 'rgba(20,184,166,0.1)'}>
-                    <CheckCircleIcon style={{ width: 14, height: 14 }} />
-                  </button>
-                </div>
-              )
-            })}
+          {/* UPCOMING VISITS */}
+          <div className="agt-bento" style={{ padding: 0, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 230 }}>
+            <div style={{ padding: '20px 20px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+               <h3 style={{ fontSize: 15, fontWeight: 700, color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                 <MapPinIcon style={{ width: 16, height: 16, color: '#38bdf8' }} /> Upcoming Tours
+               </h3>
+            </div>
+            <div className="agt-hide-scroll" style={{ padding: '0 20px 20px', flex: 1, overflowY: 'auto' }}>
+               <VisitList visits={visits.filter(v => ['scheduled','today'].includes(v.status))} onStatusChange={updateVisitStatus} />
+            </div>
           </div>
+
         </div>
       </div>
+
+      {/* PIPELINE FOOTER */}
+      {stats?.leadPipeline && (
+        <div className="agt-bento" style={{ padding: '24px', flexShrink: 0 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 800, color: '#fff', margin: '0 0 24px 0' }}>Conversion Pipeline</h2>
+          <LeadPipeline data={stats.leadPipeline} />
+        </div>
+      )}
     </div>
   );
 };
 
+
+const AdminTasksWidget = ({ tasks }) => (
+  <div style={{
+    background: C.s1, borderRadius: 20, border: `1px solid ${C.border}`, padding: 24,
+    display: 'flex', flexDirection: 'column', height: '100%'
+  }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+      <div>
+        <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: C.text }}>All System Tasks</h2>
+        <p style={{ fontSize: 12, color: C.sub, margin: '4px 0 0' }}>Overview of agent assignments</p>
+      </div>
+      <div style={{ padding: '6px 12px', background: `${C.purple}15`, color: C.purple, borderRadius: 100, fontSize: 11, fontWeight: 700 }}>
+        {tasks.length} Total
+      </div>
+    </div>
+    
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto', maxHeight: 400, paddingRight: 4 }}>
+      {tasks.length === 0 ? (
+        <div style={{ padding: 30, textAlign: 'center', color: C.sub, fontSize: 13 }}>No tasks recorded yet.</div>
+      ) : tasks.map(t => (
+        <div key={t._id} style={{
+          padding: 14, borderRadius: 12, background: C.s2, border: `1px solid ${C.border2}`,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+        }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 4 }}>{t.title}</div>
+            <div style={{ fontSize: 11, color: C.sub }}>
+              Assigned to: <span style={{ color: C.cyan, fontWeight: 600 }}>{t.agentId?.name || 'Self'}</span>
+            </div>
+          </div>
+          <StatusBadge status={t.assignmentStatus === 'self' ? 'pending' : (t.assignmentStatus || 'pending')} />
+        </div>
+      ))}
+    </div>
+  </div>
+);
 
 /* ══════════════════════════════════════════════════
    MAIN DASHBOARD
 ══════════════════════════════════════════════════ */
 const Dashboard = () => {
   const { user } = useAuth();
+  const { getTodayFollowUps, completeFollowUp } = useFollowUp();
+  const todayFollowUps = getTodayFollowUps();
+
   const isAdmin = user?.role === 'admin';
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -766,11 +853,15 @@ const Dashboard = () => {
   const [siteVisits,  setSiteVisits]  = useState(todayOps.siteVisits);
   const [schedulerLeads, setSchedulerLeads] = useState([]);
   const [activities, setActivities] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [visits, setVisits] = useState([]);
+  const [agents, setAgents] = useState([]);
 
   const [showAddLead,     setShowAddLead]     = useState(false);
   const [showAddProperty, setShowAddProperty] = useState(false);
   const [showCreateDeal,  setShowCreateDeal]  = useState(false);
   const [showSchedule,    setShowSchedule]    = useState(false);
+  const [showAddTask,     setShowAddTask]     = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -781,9 +872,12 @@ const Dashboard = () => {
 
   const fetchStats = useCallback(async () => {
     try {
-      const [statsRes, activitiesRes] = await Promise.all([
+      const [statsRes, activitiesRes, tasksRes, visitsRes, agentsRes] = await Promise.all([
         axios.get('/api/dashboard/stats').catch(() => ({ data: { success: false } })),
-        axios.get('/api/activities/today/list').catch(() => ({ data: { success: true, data: [] } }))
+        axios.get('/api/activities/today/list').catch(() => ({ data: { success: true, data: [] } })),
+        isAdmin ? axios.get('/api/tasks').catch(() => ({ data: { success: true, data: [] } })) : axios.get(`/api/tasks/agent/${user._id}`).catch(() => ({ data: { success: true, data: [] } })),
+        axios.get(`/api/visits/agent/${user._id}`).catch(() => ({ data: { success: true, data: [] } })),
+        isAdmin ? axios.get('/api/users?role=agent&limit=1000').catch(() => ({ data: { success: true, data: [] } })) : Promise.resolve({ data: { success: true, data: [] } })
       ]);
 
       if (statsRes.data.success) {
@@ -795,9 +889,10 @@ const Dashboard = () => {
           }).catch(() => {});
         }
       }
-      if (activitiesRes.data.success) {
-        setActivities(activitiesRes.data.data || []);
-      }
+      if (activitiesRes.data.success) setActivities(activitiesRes.data.data || []);
+      if (tasksRes?.data?.success) setTasks(tasksRes.data.data || []);
+      if (visitsRes?.data?.success) setVisits(visitsRes.data.data || []);
+      if (agentsRes?.data?.success) setAgents(agentsRes.data.data || []);
     } catch {}
     finally { setLoading(false); }
   }, []);
@@ -825,28 +920,39 @@ const Dashboard = () => {
     } catch { toast.error('Action failed'); }
   };
 
-  const completeFollowUp = async (id) => {
+  const handleRespondTask = async (taskId, responseType) => {
     try {
-      await axios.put(`/api/activities/${id}`, { status: 'completed' });
+      const res = await axios.patch(`/api/tasks/${taskId}/respond`, { response: responseType });
+      if (res.data.success) {
+        toast.success(responseType === 'accepted' ? 'Task accepted!' : 'Task rejected', {
+          style: { background: '#111316', border: '1px solid #1e2025', color: '#f0f2f5' }
+        });
+        fetchStats(); // Refresh the dashboard to show new status
+      }
+    } catch { toast.error('Action failed'); }
+  };
+
+  const completeTask = async (id) => {
+    try {
+      await axios.patch(`/api/tasks/${id}/complete`);
       toast.success('Task marked as completed!');
       fetchStats();
     } catch { toast.error('Failed to complete task'); }
   };
 
-  const todayFollowUps = activities
-    .filter(a => a.status !== 'completed' && a.status !== 'cancelled')
-    .map(act => ({
-      id: act._id,
-      leadName: act.title || act.lead?.name || 'Task',
-      followUpDate: act.dueDate,
-      status: act.status
-    }));
+  const updateVisitStatus = async (id, status) => {
+    try {
+      await axios.patch(`/api/visits/${id}/status`, { status });
+      toast.success(`Visit marked as ${status}!`);
+      fetchStats();
+    } catch { toast.error('Failed to update visit'); }
+  };
 
   const livePipeline = stats?.leadPipeline?.length
     ? stats.leadPipeline.map((item, i) => ({
         stage: item.name, val: item.value,
         pct: Math.round((item.value / stats.leadPipeline[0].value) * 100),
-        color: [C.cyan, C.indigo, C.purple, C.gold, C.green][i] || C.sub,
+        color: [C.cyan, C.indigo, C.purple, C.gold, C.green, C.red][i] || C.sub,
       }))
     : PIPELINE;
 
@@ -864,10 +970,10 @@ const Dashboard = () => {
       icon: CheckCircleIcon, color: C.gold, chartData: sparklineDeals, trend: '+3',
       sub: 'new this week', trendLabel: 'new deals' },
   ] : [
-    { label: 'My Leads',      value: stats?.totalLeads ?? 14, icon: UserGroupIcon, color: C.cyan,   chartData: sparklineLeads, trend: '+4' },
-    { label: 'High Priority', value: stats?.highPriorityLeads ?? 5, icon: BoltIcon, color: C.gold, chartData: [3,4,3,5,4,6,5,6], trend: '+1' },
-    { label: 'New This Week', value: stats?.newLeads ?? 3, icon: ClockIcon, color: C.green, chartData: [1,2,1,3,2,3,2,3], trend: '+3' },
-    { label: 'Conversion',    value: `${stats?.conversionRate ?? '68'}%`, icon: ArrowTrendingUpIcon, color: C.purple, chartData: [55,60,58,62,63,66,65,68], trend: '+5%' },
+    { label: 'Total Leads',   value: stats?.totalLeads ?? leads.length, icon: UserGroupIcon, color: C.cyan,   chartData: sparklineLeads, trend: '+4' },
+    { label: 'Active Deals',  value: stats?.activeDeals ?? activeDeals, icon: CheckCircleIcon, color: C.gold, chartData: [3,4,3,5,4,6,5,6], trend: '+1' },
+    { label: 'Visits Today',  value: visits.filter(v => new Date(v.visitDate).toDateString() === new Date().toDateString()).length, icon: BuildingOfficeIcon, color: C.green, chartData: [1,2,1,3,2,3,2,3], trend: '+3' },
+    { label: 'Tasks Today',   value: tasks.filter(t => new Date(t.dueDate).toDateString() === new Date().toDateString()).length, icon: ClipboardDocumentListIcon, color: C.purple, chartData: [55,60,58,62,63,66,65,68], trend: '+5' },
   ];
 
   if (loading) return (
@@ -886,11 +992,16 @@ const Dashboard = () => {
         user={user} 
         stats={stats} 
         leads={leads} 
-        todayFollowUps={todayFollowUps} 
-        completeFollowUp={completeFollowUp} 
-        handleRespondAssignment={handleRespondAssignment} 
+        tasks={tasks}
+        visits={visits}
+        completeTask={completeTask} 
+        updateVisitStatus={updateVisitStatus}
+        handleRespondAssignment={handleRespondAssignment}
+        handleRespondTask={handleRespondTask}
         loading={loading}
         kpis={kpis}
+        onAddTask={() => setShowAddTask(true)}
+        onScheduleVisit={() => setShowSchedule(true)}
       />
     );
   }
@@ -932,6 +1043,8 @@ const Dashboard = () => {
           onAddProperty={() => setShowAddProperty(true)}
           onCreateDeal={() => setShowCreateDeal(true)}
           onSchedule={() => setShowSchedule(true)}
+          onAssignTask={() => setShowAddTask(true)}
+          isAdmin={isAdmin}
         />
       </div>
 
@@ -954,10 +1067,10 @@ const Dashboard = () => {
           : <LeadsFeed leads={leads} onRespondAssignment={handleRespondAssignment} isAgent={!isAdmin} />}
       </div>
 
-      {/* ── LEADS + FOLLOW-UPS ── */}
+      {/* ── LEADS + TASKS/FOLLOWUPS ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 16, alignItems: 'start' }}>
         <LeadsFeed leads={leads} onRespondAssignment={handleRespondAssignment} isAgent={!isAdmin} />
-        <FollowUps followUps={todayFollowUps} onComplete={completeFollowUp} />
+        {isAdmin ? <AdminTasksWidget tasks={tasks} /> : <FollowUps followUps={todayFollowUps} onComplete={completeFollowUp} />}
       </div>
 
     </div>
@@ -969,6 +1082,14 @@ const Dashboard = () => {
       isOpen={showSchedule} onClose={() => setShowSchedule(false)}
       onVisitScheduled={handleVisitScheduled}
       leads={schedulerLeads.length ? schedulerLeads : undefined}
+    />
+    <AddTaskModal 
+      isOpen={showAddTask} 
+      onClose={() => setShowAddTask(false)} 
+      onTaskAdded={() => { fetchStats(); setShowAddTask(false); }}
+      leads={schedulerLeads.length ? schedulerLeads : undefined}
+      agents={agents.length ? agents : (stats?.agents || AGENTS)}
+      userRole={user?.role}
     />
     </>
   );
