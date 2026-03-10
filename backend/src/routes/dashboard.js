@@ -138,6 +138,34 @@ router.get("/stats", auth, async (req, res) => {
       .limit(5)
       .populate("lead", "name");
 
+    // Recent Lead Progress (Global feed for Admins, Agent-specific for Agents)
+    const progressFilter = isAgent ? { assignedAgent: agentId } : {};
+    const recentLeadProgress = await Lead.aggregate([
+      { $match: progressFilter },
+      { $unwind: "$progressLog" },
+      { $sort: { "progressLog.timestamp": -1 } },
+      { $limit: 15 },
+      {
+        $lookup: {
+          from: "users",
+          localField: "progressLog.updatedBy",
+          foreignField: "_id",
+          as: "agentDetails",
+        },
+      },
+      { $unwind: { path: "$agentDetails", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          _id: 1,
+          leadName: "$name",
+          status: "$progressLog.status",
+          notes: "$progressLog.notes",
+          timestamp: "$progressLog.timestamp",
+          agentName: "$agentDetails.name",
+        },
+      },
+    ]);
+
     res.json({
       success: true,
       data: {
@@ -159,6 +187,7 @@ router.get("/stats", auth, async (req, res) => {
         recentActivities,
         upcomingTasks,
         pendingAssignments,
+        recentLeadProgress,
       },
     });
   } catch (error) {

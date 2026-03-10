@@ -15,10 +15,11 @@ import toast from 'react-hot-toast';
 import CommunicationTimeline from '../components/communications/CommunicationTimeline';
 import AddCommunicationModal from '../components/modals/AddCommunicationModal';
 import RecommendedProperties from '../components/property/RecommendedProperties';
+import LeadProgressTimeline from '../components/pipeline/LeadProgressTimeline';
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
-  { id: 'activities', label: 'Activities' },
+  { id: 'activities', label: 'Progress Log' },
   { id: 'communications', label: 'Communications' },
   { id: 'deals', label: 'Deals' }
 ];
@@ -198,8 +199,14 @@ const LeadDetails = () => {
         )}
 
         {activeTab === 'activities' && (
-          <div className="panel p-6 text-center text-ink-tertiary text-sm py-16 border-dashed border-2">
-            System activity log integration goes here.
+          <div className="panel p-6">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h2 className="text-lg font-bold text-ink-primary">Progress History</h2>
+                <p className="text-sm text-ink-tertiary mt-1">Status changes and agent remarks over time.</p>
+              </div>
+            </div>
+            <LeadProgressTimeline progressLog={lead.progressLog} />
           </div>
         )}
 

@@ -6,7 +6,7 @@ import {
   CalendarIcon, PhoneIcon, TrophyIcon, StarIcon,
   ChevronRightIcon, PlusIcon, BuildingOfficeIcon,
   ArrowUpIcon, ArrowDownIcon, FireIcon, SparklesIcon,
-  MapPinIcon, ChartBarIcon, ClipboardDocumentListIcon
+  MapPinIcon, ChartBarIcon, ClipboardDocumentListIcon, InboxIcon
 } from '@heroicons/react/24/outline';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -26,27 +26,28 @@ import CreateDealModal   from '../components/modals/CreateDealModal';
 import ScheduleVisitModal from '../components/visits/ScheduleVisitModal';
 import AddTaskModal from '../components/tasks/AddTaskModal';
 import TaskList from '../components/tasks/TaskList';
+import TaskDetailsModal from '../components/tasks/TaskDetailsModal';
 import VisitList from '../components/visits/VisitList';
 import LeadPipeline from '../components/pipeline/LeadPipeline';
 
 /* ══  COLOR SYSTEM  ══════════════════════════════════════════ */
 const C = {
-  bg:      '#05060a',
-  s1:      '#0a0d14',
-  s2:      '#0e1220',
-  s3:      '#131928',
-  border:  'rgba(255,255,255,0.06)',
+  bg:      '#0a0a0c', // Deep obsidian
+  s1:      'rgba(18, 18, 22, 0.7)',
+  s2:      'rgba(255,255,255,0.02)',
+  s3:      'rgba(255,255,255,0.04)',
+  border:  'rgba(255,255,255,0.04)',
   border2: 'rgba(255,255,255,0.03)',
   purple:  '#8b5cf6',
   indigo:  '#6366f1',
   gold:    '#f59e0b',
   cyan:    '#22d3ee',
   pink:    '#ec4899',
-  green:   '#34d399',
-  red:     '#f87171',
-  text:    '#f0f4ff',
-  sub:     '#6b7280',
-  dim:     '#374151',
+  green:   '#10b981', // Richer emerald vs 34d399
+  red:     '#f43f5e',
+  text:    '#ffffff',
+  sub:     'rgba(255,255,255,0.5)',
+  dim:     'rgba(255,255,255,0.3)',
 };
 
 const MONTH_DATA = [
@@ -88,7 +89,7 @@ const Av = ({ name, size = 32, color = C.purple }) => (
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     fontSize: size * 0.32, fontWeight: 800, color,
   }}>
-    {name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+    {name?.split(' ')?.map(w => w[0]).join('').slice(0, 2).toUpperCase()}
   </div>
 );
 
@@ -129,13 +130,14 @@ const Glass = ({ children, style = {}, glow, onClick }) => (
   <div
     onClick={onClick}
     style={{
-      background: `linear-gradient(135deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%)`,
-      backdropFilter: 'blur(12px)',
-      border: '1px solid rgba(255,255,255,0.07)',
-      borderRadius: 20,
+      background: 'rgba(18, 18, 22, 0.7)',
+      backdropFilter: 'blur(24px)',
+      WebkitBackdropFilter: 'blur(24px)',
+      border: '1px solid rgba(255,255,255,0.04)',
+      borderRadius: 24,
       position: 'relative',
       overflow: 'hidden',
-      boxShadow: glow ? `0 0 0 1px ${glow}20, 0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)` : '0 4px 24px rgba(0,0,0,0.4)',
+      boxShadow: glow ? `0 0 0 1px ${glow}20, 0 8px 32px -8px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.02)` : '0 8px 32px -8px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.02)',
       ...style,
     }}
   >
@@ -148,6 +150,90 @@ const Glass = ({ children, style = {}, glow, onClick }) => (
     {children}
   </div>
 );
+
+/* ══  TASK PROGRESS MODAL  ══════════════════════════════════ */
+const TaskProgressModal = ({ isOpen, onClose, onUpdate, task }) => {
+  const [status, setStatus] = useState('completed');
+  const [remarks, setRemarks] = useState('');
+
+  useEffect(() => {
+    if (task) {
+      setStatus(task.status || 'completed');
+      setRemarks(task.remarks || '');
+    }
+  }, [task, isOpen]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 1000,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)'
+    }}>
+      <Glass style={{ width: '100%', maxWidth: 460, padding: 32 }}>
+        <h2 style={{ fontSize: 22, fontWeight: 900, color: '#fff', marginBottom: 8 }}>Update Progress</h2>
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 24 }}>{task?.title}</p>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: '#14b8a6', textTransform: 'uppercase', marginBottom: 12, letterSpacing: '0.1em' }}>Select Current Status</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+              {[
+                { id: 'completed', label: 'Completed', color: '#10b981' },
+                { id: 'delayed',   label: 'Delayed',   color: '#f59e0b' },
+                { id: 'declined',  label: 'Declined',  color: '#f43f5e' }
+              ].map(s => (
+                <button
+                  key={s.id}
+                  onClick={() => setStatus(s.id)}
+                  style={{
+                    padding: '14px 10px', borderRadius: 16, border: `1px solid ${status === s.id ? s.color : 'rgba(255,255,255,0.05)'}`,
+                    background: status === s.id ? `${s.color}20` : 'rgba(255,255,255,0.02)',
+                    color: status === s.id ? '#fff' : 'rgba(255,255,255,0.4)',
+                    fontSize: 12, fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6
+                  }}
+                >
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: s.color, opacity: status === s.id ? 1 : 0.4 }} />
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: '#8b5cf6', textTransform: 'uppercase', marginBottom: 8, letterSpacing: '0.1em' }}>Remarks / Reason</label>
+            <textarea
+              value={remarks}
+              onChange={e => setRemarks(e.target.value)}
+              placeholder="Explain why the task is delayed or complete..."
+              style={{
+                width: '100%', height: 100, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: 12, padding: 12, color: '#fff', fontSize: 13, resize: 'none', outline: 'none'
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+            <button
+              onClick={onClose}
+              style={{ flex: 1, padding: '12px', borderRadius: 12, background: 'rgba(255,255,255,0.05)', color: '#fff', border: 'none', fontWeight: 700, cursor: 'pointer' }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => onUpdate(task._id, status, remarks)}
+              style={{ flex: 2, padding: '12px', borderRadius: 12, background: '#14b8a6', color: '#000', border: 'none', fontWeight: 800, cursor: 'pointer' }}
+            >
+              Update Log
+            </button>
+          </div>
+        </div>
+      </Glass>
+    </div>
+  );
+};
 
 /* ══  CHART TOOLTIP  ═════════════════════════════════════════ */
 const Tip = ({ active, payload, label }) => {
@@ -174,66 +260,69 @@ const Tip = ({ active, payload, label }) => {
 const HeroKpi = ({ label, value, sub, prefix = '', icon: Icon, color, chartData, trend }) => {
   const isUp = trend && !trend.startsWith('-');
   return (
-    <Glass glow={color} style={{ padding: '24px 26px', display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minWidth: 0 }}>
+    <div style={{
+      position: 'relative', overflow: 'hidden', borderRadius: 20,
+      background: '#0d0f12', border: `1px solid ${color}15`,
+      padding: '20px', display: 'flex', flexDirection: 'column', gap: 16,
+      flex: 1, minWidth: 0,
+      boxShadow: `0 8px 32px -12px ${color}10`,
+      minHeight: 180,
+    }}>
       {/* top row */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ width: 38, height: 38, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: `${color}20`, border: `1px solid ${color}35` }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', zIndex: 10 }}>
+        <div style={{
+          width: 38, height: 38, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: `${color}08`, border: `1px solid ${color}20`
+        }}>
           <Icon style={{ width: 18, height: 18, color }} />
         </div>
         {trend && (
-          <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, fontWeight: 700,
-            color: isUp ? C.green : C.red,
-            background: isUp ? `${C.green}12` : `${C.red}12`,
-            border: `1px solid ${isUp ? C.green : C.red}25`,
-            padding: '3px 8px', borderRadius: 99 }}>
-            {isUp ? <ArrowUpIcon style={{ width: 10, height: 10 }} /> : <ArrowDownIcon style={{ width: 10, height: 10 }} />}
+          <span style={{
+            display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700,
+            color: isUp ? '#10b981' : '#f43f5e',
+            background: isUp ? 'rgba(16, 185, 129, 0.1)' : 'rgba(244, 63, 94, 0.1)',
+            padding: '4px 10px', borderRadius: 100
+          }}>
+            {isUp ? <ArrowUpIcon style={{ width: 12, height: 12 }} /> : <ArrowDownIcon style={{ width: 12, height: 12 }} />}
             {trend}
           </span>
         )}
       </div>
 
       {/* value */}
-      <div>
-        <div style={{ fontSize: 9, fontWeight: 700, color: C.sub, textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: 4 }}>
+      <div style={{ marginTop: 2, position: 'relative', zIndex: 10 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: '#8a8f98', textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: 8 }}>
           {label}
         </div>
-        <div style={{ fontSize: 30, fontWeight: 900, color: C.text, letterSpacing: '-0.03em', lineHeight: 1 }}>
+        <div style={{ fontSize: 36, fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em', lineHeight: 1 }}>
           {prefix}{typeof value === 'number' ? value.toLocaleString() : value}
         </div>
-        {sub && <div style={{ fontSize: 11, color: C.sub, marginTop: 4 }}>{sub}</div>}
+        {sub && <div style={{ fontSize: 11, color: '#71757e', marginTop: 10, fontWeight: 500 }}>{sub}</div>}
       </div>
 
-      {/* mini sparkline */}
+      {/* line chart at the bottom edge */}
       {chartData?.length > 0 && (
-        <div style={{ height: 44, marginLeft: -6, marginRight: -6, marginTop: 4 }}>
+        <div style={{ position: 'absolute', bottom: -4, left: -2, right: -2, height: 44, zIndex: 1 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData.map(v => ({ v }))} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id={`hg-${label}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={color} stopOpacity={0.4} />
-                  <stop offset="100%" stopColor={color} stopOpacity={0} />
-                </linearGradient>
-              </defs>
+            <LineChart data={chartData.map(v => ({ v }))} margin={{ top: 5, right: 0, left: 0, bottom: 0 }}>
               <Tooltip content={() => null} />
-              <Area type="monotoneX" dataKey="v" stroke={color} strokeWidth={2}
-                fill={`url(#hg-${label})`} dot={false} activeDot={false}
+              <Line type="monotone" dataKey="v" stroke={color} strokeWidth={2.5} dot={false} activeDot={false}
                 isAnimationActive animationDuration={1600} animationEasing="ease-out" />
-            </AreaChart>
+            </LineChart>
           </ResponsiveContainer>
         </div>
       )}
-    </Glass>
+    </div>
   );
 };
 
 /* ══  REVENUE TIMELINE CHART  ═══════════════════════════════ */
 const RevenueTimeline = ({ data }) => (
-  <Glass style={{ padding: '22px 24px 20px' }}>
-    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
+  <Glass style={{ padding: '24px' }}>
+    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
       <div>
-        <div style={{ fontSize: 16, fontWeight: 800, color: C.text, letterSpacing: '-0.01em' }}>Revenue Timeline</div>
-        <div style={{ fontSize: 11, color: C.sub, marginTop: 3 }}>Monthly revenue & deal volume — last 6 months</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: C.text, letterSpacing: '-0.01em' }}>Revenue Timeline</div>
+        <div style={{ fontSize: 12, color: C.sub, marginTop: 4 }}>Monthly revenue & deal volume — last 6 months</div>
       </div>
       <div style={{ display: 'flex', gap: 14 }}>
         {[{ c: C.purple, l: 'Revenue' }, { c: C.gold, l: 'Deals' }, { c: C.cyan, l: 'Leads' }].map((x, i) => (
@@ -291,10 +380,10 @@ const RevenueTimeline = ({ data }) => (
 const PipelineFunnel = ({ data }) => {
   const max = data[0]?.val || 1;
   return (
-    <Glass style={{ padding: '22px 24px 20px' }}>
-      <div style={{ marginBottom: 18 }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: C.text, letterSpacing: '-0.01em' }}>Sales Pipeline</div>
-        <div style={{ fontSize: 11, color: C.sub, marginTop: 3 }}>Lead conversion through each stage</div>
+    <Glass style={{ padding: '24px' }}>
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 18, fontWeight: 800, color: C.text, letterSpacing: '-0.01em' }}>Sales Pipeline</div>
+        <div style={{ fontSize: 12, color: C.sub, marginTop: 4 }}>Lead conversion through each stage</div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {data.map((d, i) => (
@@ -342,34 +431,34 @@ const TodayPulse = ({ data, followUps }) => {
     { label: 'Closing Soon',   value: data.closingSoon,        color: C.pink,   Icon: FireIcon },
   ];
   return (
-    <Glass style={{ padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+    <Glass style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
-          <div style={{ fontSize: 16, fontWeight: 800, color: C.text, letterSpacing: '-0.01em' }}>Today's Pulse</div>
-          <div style={{ fontSize: 11, color: C.sub, marginTop: 3 }}>Live operational metrics</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: C.text, letterSpacing: '-0.01em' }}>Today's Pulse</div>
+          <div style={{ fontSize: 12, color: C.sub, marginTop: 4 }}>Live operational metrics</div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', background: 'rgba(16,185,129,0.1)', borderRadius: 100, border: '1px solid rgba(16,185,129,0.2)' }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: C.green,
             boxShadow: `0 0 8px ${C.green}`, animation: 'livePulse 2s ease infinite' }} />
-          <span style={{ fontSize: 10, fontWeight: 700, color: C.green }}>Live</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: C.green }}>LIVE</span>
         </div>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         {items.map((r, i) => (
           <div key={i} style={{
-            padding: '14px 16px', borderRadius: 14,
-            background: `${r.color}0e`,
+            padding: '16px', borderRadius: 16,
+            background: `linear-gradient(135deg, ${r.color}10 0%, rgba(255,255,255,0.01) 100%)`,
             border: `1px solid ${r.color}25`,
-            display: 'flex', flexDirection: 'column', gap: 10,
-            transition: 'border-color 0.2s',
+            display: 'flex', flexDirection: 'column', gap: 12,
+            transition: 'all 0.2s',
           }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = `${r.color}55`}
-            onMouseLeave={e => e.currentTarget.style.borderColor = `${r.color}25`}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = `${r.color}50`; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = `${r.color}25`; e.currentTarget.style.transform = ''; }}
           >
-            <r.Icon style={{ width: 18, height: 18, color: r.color }} />
+            <r.Icon style={{ width: 22, height: 22, color: r.color }} />
             <div>
-              <div style={{ fontSize: 28, fontWeight: 900, color: C.text, letterSpacing: '-0.03em', lineHeight: 1 }}>{r.value}</div>
-              <div style={{ fontSize: 10, color: C.sub, marginTop: 4, fontWeight: 600 }}>{r.label}</div>
+              <div style={{ fontSize: 32, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em', lineHeight: 1 }}>{r.value}</div>
+              <div style={{ fontSize: 11, color: C.sub, marginTop: 6, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{r.label}</div>
             </div>
           </div>
         ))}
@@ -387,47 +476,50 @@ const Leaderboard = ({ agents, liveData }) => {
     : agents;
 
   return (
-    <Glass style={{ padding: '22px 24px' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
+    <Glass style={{ padding: '24px' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
-          <div style={{ fontSize: 16, fontWeight: 800, color: C.text, letterSpacing: '-0.01em' }}>Agent Leaderboard</div>
-          <div style={{ fontSize: 11, color: C.sub, marginTop: 3 }}>Performance ranking this month</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: C.text, letterSpacing: '-0.01em' }}>Agent Leaderboard</div>
+          <div style={{ fontSize: 12, color: C.sub, marginTop: 4 }}>Performance ranking this month</div>
         </div>
-        <Pill color={C.gold}><TrophyIcon style={{ width: 9, height: 9 }} /> This Month</Pill>
+        <Pill color={C.gold}><TrophyIcon style={{ width: 10, height: 10 }} /> This Month</Pill>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div className="agt-hide-scroll" style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 400, overflowY: 'auto', paddingRight: 4 }}>
         {list.map((a, i) => (
           <div key={i} style={{
-            display: 'flex', alignItems: 'center', gap: 12,
-            padding: '12px 14px', borderRadius: 14,
-            background: i === 0 ? `${a.color}0c` : 'rgba(255,255,255,0.02)',
-            border: `1px solid ${i === 0 ? a.color + '30' : 'rgba(255,255,255,0.04)'}`,
-            transition: 'border-color 0.2s, background 0.2s',
-          }}>
+            display: 'flex', alignItems: 'center', gap: 14,
+            padding: '14px 16px', borderRadius: 16,
+            background: i === 0 ? `linear-gradient(135deg, ${a.color}15 0%, rgba(255,255,255,0.01) 100%)` : 'rgba(255,255,255,0.02)',
+            border: `1px solid ${i === 0 ? a.color + '40' : 'rgba(255,255,255,0.04)'}`,
+            transition: 'all 0.2s',
+          }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.borderColor = i === 0 ? a.color + '60' : 'rgba(255,255,255,0.1)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.borderColor = i === 0 ? a.color + '40' : 'rgba(255,255,255,0.04)'; }}
+          >
             {/* rank */}
-            <div style={{ width: 26, height: 26, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            <div style={{ width: 32, height: 32, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
               background: i === 0 ? `${a.color}30` : 'rgba(255,255,255,0.04)',
-              fontSize: 12, fontWeight: 900,
+              fontSize: 14, fontWeight: 900,
               color: i === 0 ? a.color : C.sub, flexShrink: 0 }}>
               {i === 0 ? '🏆' : i + 1}
             </div>
-            <Av name={a.name} size={32} color={a.color} />
+            <Av name={a.name} size={36} color={a.color} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.name}</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{a.name}</div>
               {/* progress bar */}
-              <div style={{ height: 3, borderRadius: 99, background: 'rgba(255,255,255,0.06)', marginTop: 6 }}>
+              <div style={{ height: 4, borderRadius: 99, background: 'rgba(255,255,255,0.06)', marginTop: 8 }}>
                 <div style={{ width: `${a.rating}%`, height: '100%', borderRadius: 99,
                   background: `linear-gradient(90deg,${a.color},${a.color}88)`,
-                  boxShadow: `0 0 6px ${a.color}50` }} />
+                  boxShadow: `0 0 8px ${a.color}50` }} />
               </div>
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 800, color: a.color }}>{a.leads}</div>
-              <div style={{ fontSize: 9, color: C.sub, marginTop: 2 }}>leads</div>
+              <div style={{ fontSize: 16, fontWeight: 900, color: a.color }}>{a.leads}</div>
+              <div style={{ fontSize: 10, fontWeight: 600, color: C.sub, marginTop: 2, textTransform: 'uppercase' }}>leads</div>
             </div>
-            <div style={{ textAlign: 'right', flexShrink: 0, minWidth: 52 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{a.deals}</div>
-              <div style={{ fontSize: 9, color: C.sub, marginTop: 2 }}>deals</div>
+            <div style={{ textAlign: 'right', flexShrink: 0, minWidth: 56 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{a.deals}</div>
+              <div style={{ fontSize: 10, fontWeight: 600, color: C.sub, marginTop: 2, textTransform: 'uppercase' }}>deals</div>
             </div>
           </div>
         ))}
@@ -436,29 +528,87 @@ const Leaderboard = ({ agents, liveData }) => {
   );
 };
 
+/* ══  LEAD PROGRESS FEED (ADMIN)  ═════════════════════════════ */
+const LeadProgressFeed = ({ progressLog = [] }) => (
+  <Glass style={{ padding: '24px', display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+      <div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: C.text, letterSpacing: '-0.01em' }}>Live Progress</div>
+        <div style={{ fontSize: 12, color: C.sub, marginTop: 4 }}>Recent agent updates</div>
+      </div>
+      <div style={{ padding: '4px 12px', background: `${C.pink}15`, color: C.pink, borderRadius: 100, fontSize: 12, fontWeight: 700 }}>
+        {progressLog.length} Updates
+      </div>
+    </div>
+    <div className="agt-hide-scroll" style={{ display: 'flex', flexDirection: 'column', gap: 16, maxHeight: 400, overflowY: 'auto', paddingRight: 4 }}>
+      {progressLog.length === 0 ? (
+        <div style={{ padding: 40, textAlign: 'center', color: C.sub, fontSize: 13 }}>No recent progress logged.</div>
+      ) : progressLog.map((log, i) => {
+        const d = new Date(log.timestamp);
+        const timeStr = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        const dateStr = d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+        return (
+          <div key={log._id || i} style={{ display: 'flex', gap: 16, position: 'relative' }}>
+            {/* Timeline track */}
+            {i !== progressLog.length - 1 && (
+              <div style={{ position: 'absolute', top: 32, bottom: -16, left: 15, width: 2, background: 'rgba(255,255,255,0.05)' }} />
+            )}
+            {/* Avatar node */}
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <Av name={log.agentName || 'Agent'} size={32} color={[C.purple, C.cyan, C.pink, C.gold][i % 4]} />
+            </div>
+            {/* Content card */}
+            <div style={{ flex: 1, background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 12, padding: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+                <div style={{ fontSize: 13, color: '#fff' }}>
+                  <span style={{ fontWeight: 800 }}>{log.agentName || 'Agent'}</span>
+                  <span style={{ color: C.sub }}> updated </span>
+                  <span style={{ fontWeight: 600, color: C.cyan }}>{log.leadName}</span>
+                </div>
+                <div style={{ fontSize: 10, color: C.dim, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                  {dateStr}<br/>{timeStr}
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <span style={{ fontSize: 10, color: C.sub }}>Status:</span>
+                <StatusBadge status={log.status || 'new'} />
+              </div>
+              {log.notes && (
+                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', fontStyle: 'italic', background: 'rgba(0,0,0,0.2)', padding: '8px 12px', borderRadius: 8, borderLeft: `2px solid ${C.purple}` }}>
+                  "{log.notes}"
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  </Glass>
+);
+
 /* ══  RECENT LEADS FEED  ════════════════════════════════════ */
 const LeadsFeed = ({ leads, onRespondAssignment, isAgent }) => (
-  <Glass style={{ padding: '22px 24px' }}>
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+  <Glass style={{ padding: '24px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
       <div>
-        <div style={{ fontSize: 16, fontWeight: 800, color: C.text, letterSpacing: '-0.01em' }}>Recent Leads</div>
-        <div style={{ fontSize: 11, color: C.sub, marginTop: 3 }}>Latest incoming records</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: C.text, letterSpacing: '-0.01em' }}>Recent Leads</div>
+        <div style={{ fontSize: 12, color: C.sub, marginTop: 4 }}>Latest incoming records</div>
       </div>
-      <a href="/leads" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700,
-        color: C.purple, textDecoration: 'none', padding: '5px 12px', borderRadius: 99,
-        background: `${C.purple}12`, border: `1px solid ${C.purple}30` }}>
-        View All <ChevronRightIcon style={{ width: 12, height: 12 }} />
+      <a href="/leads" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700,
+        color: C.purple, textDecoration: 'none', padding: '6px 14px', borderRadius: 100,
+        background: `${C.purple}15`, border: `1px solid ${C.purple}30` }}>
+        View All <ChevronRightIcon style={{ width: 14, height: 14 }} />
       </a>
     </div>
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div className="agt-hide-scroll" style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 400, overflowY: 'auto', paddingRight: 4 }}>
       {leads.slice(0, 6).map((l, i) => (
-        <div key={l._id || l.id || i} style={{
-          display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
-          borderRadius: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)',
+        <div key={l._id || l.id || i} className="agt-task-item" style={{
+          display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px',
+          borderRadius: 16, background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.03)',
           transition: 'background 0.15s, border-color 0.15s', cursor: 'pointer',
         }}
           onMouseEnter={e => { e.currentTarget.style.background = 'rgba(139,92,246,0.06)'; e.currentTarget.style.borderColor = `${C.purple}20`; }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.015)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.03)'; }}
         >
           <Av name={l.name} size={34} color={[C.purple, C.cyan, C.gold, C.green, C.pink, C.indigo][i % 6]} />
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -505,19 +655,19 @@ const LeadsFeed = ({ leads, onRespondAssignment, isAgent }) => (
 
 /* ══  FOLLOW-UPS  ════════════════════════════════════════════ */
 const FollowUps = ({ followUps, onComplete }) => (
-  <Glass style={{ padding: '22px 24px' }}>
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+  <Glass style={{ padding: '24px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
       <div>
-        <div style={{ fontSize: 16, fontWeight: 800, color: C.text, letterSpacing: '-0.01em' }}>Follow-ups</div>
-        <div style={{ fontSize: 11, color: C.sub, marginTop: 3 }}>Scheduled for today</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: C.text, letterSpacing: '-0.01em' }}>Follow-ups</div>
+        <div style={{ fontSize: 12, color: C.sub, marginTop: 4 }}>Scheduled for today</div>
       </div>
       <Pill color={C.gold}>{followUps.length} pending</Pill>
     </div>
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 240, overflowY: 'auto' }}>
+    <div className="agt-hide-scroll" style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 400, overflowY: 'auto', paddingRight: 4 }}>
       {followUps.length === 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 0', gap: 8 }}>
-          <CheckCircleIcon style={{ width: 28, height: 28, color: C.green, opacity: 0.5 }} />
-          <span style={{ fontSize: 12, color: C.sub }}>All caught up! 🎉</span>
+          <CheckCircleIcon style={{ width: 32, height: 32, color: C.green, opacity: 0.5 }} />
+          <span style={{ fontSize: 13, color: C.sub }}>All caught up! 🎉</span>
         </div>
       ) : followUps.map(fu => {
         const now = new Date();
@@ -527,9 +677,9 @@ const FollowUps = ({ followUps, onComplete }) => (
         const timeText = isDue ? 'Due Now' : diffMins < 60 ? `In ${diffMins}m` : `In ${Math.floor(diffMins / 60)}h`;
         const timeColor = isDue ? C.red : diffMins < 60 ? C.gold : C.green;
         return (
-          <div key={fu.id} style={{
-            display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 12,
-            background: `${timeColor}08`, border: `1px solid ${timeColor}20`,
+          <div key={fu.id} className="agt-task-item" style={{
+            display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 16,
+            background: `${timeColor}0a`, border: `1px solid ${timeColor}20`,
           }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{fu.leadName}</div>
@@ -562,20 +712,21 @@ const QuickActions = ({ onAddLead, onAddProperty, onCreateDeal, onSchedule, onAs
   }
 
   return (
-    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
       {actions.map((a, i) => {
         const Icon = a.icon || PlusIcon;
         return (
           <button key={i} onClick={a.onClick} style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            padding: '8px 16px', borderRadius: 12, border: `1px solid ${a.color}35`,
-            background: `${a.color}12`, color: a.color, fontSize: 12, fontWeight: 700,
-            cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            padding: '10px 18px', borderRadius: 14, border: `1px solid ${a.color}25`,
+            background: 'transparent',
+            color: a.color, fontSize: 13, fontWeight: 700,
+            cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
           }}
-            onMouseEnter={e => { e.currentTarget.style.background = `${a.color}22`; e.currentTarget.style.borderColor = `${a.color}55`; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = `${a.color}12`; e.currentTarget.style.borderColor = `${a.color}35`; e.currentTarget.style.transform = ''; }}
+            onMouseEnter={e => { e.currentTarget.style.background = `${a.color}10`; e.currentTarget.style.borderColor = `${a.color}50`; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = `${a.color}25`; e.currentTarget.style.transform = ''; }}
           >
-            <Icon style={{ width: 13, height: 13 }} />{a.label}
+            <Icon style={{ width: 14, height: 14 }} />{a.label}
           </button>
         )
       })}
@@ -586,7 +737,7 @@ const QuickActions = ({ onAddLead, onAddProperty, onCreateDeal, onSchedule, onAs
 /* ══════════════════════════════════════════════════
    AGENT PREMIUM DASHBOARD
 ══════════════════════════════════════════════════ */
-const AgentDashboard = ({ user, stats, leads, tasks, visits, completeTask, updateVisitStatus, handleRespondAssignment, handleRespondTask, loading, kpis, onAddTask, onScheduleVisit }) => {
+const AgentDashboard = ({ user, stats, leads, tasks, visits, updateVisitStatus, onUpdateProgress, handleRespondAssignment, handleRespondTask, loading, kpis, onAddTask, onScheduleVisit }) => {
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', background: '#0a0a0c' }}>
       <div style={{ width: 40, height: 40, borderRadius: '50%', border: `3px solid rgba(20,184,166,0.3)`, borderTopColor: '#14b8a6', animation: 'spin 0.8s ease-in-out infinite' }} />
@@ -686,14 +837,14 @@ const AgentDashboard = ({ user, stats, leads, tasks, visits, completeTask, updat
 
       {/* METRICS ROW */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
-        {kpis.map((k, i) => (
+        {kpis?.map((k, i) => (
           <div key={i} className="agt-bento" style={{ padding: '24px', display: 'flex', alignItems: 'center', gap: 16 }}>
             <div style={{ 
               width: 52, height: 52, borderRadius: 16, background: `linear-gradient(135deg, ${k.color}15 0%, rgba(255,255,255,0.02) 100%)`, 
               color: k.color, display: 'flex', alignItems: 'center', justifyContent: 'center',
               border: `1px solid ${k.color}20`
             }}>
-              <k.icon style={{ width: 24, height: 24 }} />
+              {k.icon && <k.icon style={{ width: 24, height: 24 }} />}
             </div>
             <div>
               <div style={{ fontSize: 28, fontWeight: 800, color: '#fff', letterSpacing: '-0.02em', lineHeight: 1 }}>{k.value}</div>
@@ -714,12 +865,12 @@ const AgentDashboard = ({ user, stats, leads, tasks, visits, completeTask, updat
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: '4px 0 0' }}>Organized by absolute urgency</p>
             </div>
             <div style={{ background: 'rgba(20,184,166,0.1)', color: '#14b8a6', padding: '4px 12px', borderRadius: 100, fontSize: 12, fontWeight: 700 }}>
-              {leads.length} Pending
+              {leads?.length || 0} Pending
             </div>
           </div>
           
           <div className="agt-hide-scroll" style={{ padding: 24, overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {leads.length === 0 ? (
+            {!leads || leads.length === 0 ? (
               <div style={{ margin: 'auto', textAlign: 'center', padding: 40 }}>
                 <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(255,255,255,0.02)', margin: '0 auto 16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <InboxIcon style={{ width: 28, height: 28, color: 'rgba(255,255,255,0.2)' }} />
@@ -737,12 +888,12 @@ const AgentDashboard = ({ user, stats, leads, tasks, visits, completeTask, updat
                   background: `linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.01) 100%)`, 
                   display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, color: '#fff' 
                 }}>
-                  {l.name.charAt(0)}
+                  {l.name?.charAt(0) || '?'}
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>{l.name}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>{l.name || 'Anonymous Lead'}</div>
                   <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <PhoneIcon style={{ width: 10, height: 10 }} /> {l.phone}
+                    <PhoneIcon style={{ width: 10, height: 10 }} /> {l.phone || 'No phone'}
                     <span style={{ color: 'rgba(255,255,255,0.2)' }}>•</span>
                     <span style={{ color: '#8b5cf6', fontWeight: 600 }}>{l.preferredPropertyType || 'Any'}</span>
                   </div>
@@ -769,7 +920,15 @@ const AgentDashboard = ({ user, stats, leads, tasks, visits, completeTask, updat
                )}
             </div>
             <div className="agt-hide-scroll" style={{ padding: '0 20px 20px', flex: 1, overflowY: 'auto' }}>
-               <TaskList tasks={tasks.filter(t => t.status !== 'completed')} onComplete={completeTask} onRespondTask={handleRespondTask} />
+              <TaskList 
+                tasks={[...tasks].sort((a, b) => {
+                  if (a.status === 'completed' && b.status !== 'completed') return 1;
+                  if (a.status !== 'completed' && b.status === 'completed') return -1;
+                  return new Date(a.dueDate) - new Date(b.dueDate);
+                })} 
+                onRespondTask={handleRespondTask} 
+                onUpdateProgress={onUpdateProgress} 
+              />
             </div>
           </div>
 
@@ -800,40 +959,47 @@ const AgentDashboard = ({ user, stats, leads, tasks, visits, completeTask, updat
 };
 
 
-const AdminTasksWidget = ({ tasks }) => (
-  <div style={{
-    background: C.s1, borderRadius: 20, border: `1px solid ${C.border}`, padding: 24,
-    display: 'flex', flexDirection: 'column', height: '100%'
-  }}>
+const AdminTasksWidget = ({ tasks, onViewTask }) => (
+  <Glass style={{ padding: '24px', display: 'flex', flexDirection: 'column', height: '100%' }}>
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
       <div>
-        <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: C.text }}>All System Tasks</h2>
+        <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: C.text }}>All System Tasks</h2>
         <p style={{ fontSize: 12, color: C.sub, margin: '4px 0 0' }}>Overview of agent assignments</p>
       </div>
-      <div style={{ padding: '6px 12px', background: `${C.purple}15`, color: C.purple, borderRadius: 100, fontSize: 11, fontWeight: 700 }}>
+      <div style={{ padding: '4px 12px', background: `${C.purple}15`, color: C.purple, borderRadius: 100, fontSize: 12, fontWeight: 700 }}>
         {tasks.length} Total
       </div>
     </div>
     
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto', maxHeight: 400, paddingRight: 4 }}>
+    <div className="agt-hide-scroll" style={{ display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto', maxHeight: 400, paddingRight: 8, paddingBottom: 16 }}>
       {tasks.length === 0 ? (
-        <div style={{ padding: 30, textAlign: 'center', color: C.sub, fontSize: 13 }}>No tasks recorded yet.</div>
+        <div style={{ padding: 40, textAlign: 'center', color: C.sub, fontSize: 13 }}>No tasks recorded yet.</div>
       ) : tasks.map(t => (
-        <div key={t._id} style={{
-          padding: 14, borderRadius: 12, background: C.s2, border: `1px solid ${C.border2}`,
+        <div key={t._id} onClick={() => onViewTask && onViewTask(t)} className="agt-task-item" style={{
+          padding: '16px', borderRadius: 16, cursor: 'pointer',
+          background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.03)',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center'
         }}>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 4 }}>{t.title}</div>
-            <div style={{ fontSize: 11, color: C.sub }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 4 }}>{t.title}</div>
+            <div style={{ fontSize: 12, color: C.sub }}>
               Assigned to: <span style={{ color: C.cyan, fontWeight: 600 }}>{t.agentId?.name || 'Self'}</span>
             </div>
           </div>
-          <StatusBadge status={t.assignmentStatus === 'self' ? 'pending' : (t.assignmentStatus || 'pending')} />
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+              <StatusBadge status={t.status || 'pending'} />
+              {t.remarks && (
+                <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', maxWidth: 120, textAlign: 'right', fontStyle: 'italic' }}>
+                  "{t.remarks}"
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       ))}
     </div>
-  </div>
+  </Glass>
 );
 
 /* ══════════════════════════════════════════════════
@@ -862,6 +1028,9 @@ const Dashboard = () => {
   const [showCreateDeal,  setShowCreateDeal]  = useState(false);
   const [showSchedule,    setShowSchedule]    = useState(false);
   const [showAddTask,     setShowAddTask]     = useState(false);
+  const [showProgress,    setShowProgress]    = useState(false);
+  const [showTaskDetails, setShowTaskDetails] = useState(false);
+  const [selectedTask,    setSelectedTask]    = useState(null);
 
   useEffect(() => {
     if (!user) return;
@@ -948,6 +1117,17 @@ const Dashboard = () => {
     } catch { toast.error('Failed to update visit'); }
   };
 
+  const handleUpdateProgress = async (id, status, remarks) => {
+    try {
+      const res = await axios.patch(`/api/tasks/${id}/progress`, { status, remarks });
+      if (res.data.success) {
+        toast.success('Task progress updated!');
+        setShowProgress(false);
+        fetchStats();
+      }
+    } catch { toast.error('Update failed'); }
+  };
+
   const livePipeline = stats?.leadPipeline?.length
     ? stats.leadPipeline.map((item, i) => ({
         stage: item.name, val: item.value,
@@ -988,53 +1168,79 @@ const Dashboard = () => {
 
   if (!isAdmin) {
     return (
-      <AgentDashboard 
-        user={user} 
-        stats={stats} 
-        leads={leads} 
-        tasks={tasks}
-        visits={visits}
-        completeTask={completeTask} 
-        updateVisitStatus={updateVisitStatus}
-        handleRespondAssignment={handleRespondAssignment}
-        handleRespondTask={handleRespondTask}
-        loading={loading}
-        kpis={kpis}
-        onAddTask={() => setShowAddTask(true)}
-        onScheduleVisit={() => setShowSchedule(true)}
-      />
+      <>
+        <AgentDashboard 
+          user={user} 
+          stats={stats} 
+          leads={leads} 
+          tasks={tasks}
+          visits={visits}
+          updateVisitStatus={updateVisitStatus}
+          onUpdateProgress={(t) => { setSelectedTask(t); setShowProgress(true); }}
+          handleRespondAssignment={handleRespondAssignment}
+          handleRespondTask={handleRespondTask}
+          loading={loading}
+          kpis={kpis}
+          onAddTask={() => setShowAddTask(true)}
+          onScheduleVisit={() => setShowSchedule(true)}
+        />
+        <AddLeadModal    isOpen={showAddLead}     onClose={() => setShowAddLead(false)}     onLeadAdded={handleLeadAdded} />
+        <AddPropertyModal isOpen={showAddProperty} onClose={() => setShowAddProperty(false)} />
+        <CreateDealModal  isOpen={showCreateDeal}  onClose={() => setShowCreateDeal(false)}  onDealCreated={handleDealCreated} />
+        <ScheduleVisitModal
+          isOpen={showSchedule} onClose={() => setShowSchedule(false)}
+          onVisitScheduled={handleVisitScheduled}
+          leads={schedulerLeads.length ? schedulerLeads : undefined}
+        />
+        <AddTaskModal 
+          isOpen={showAddTask} 
+          onClose={() => setShowAddTask(false)} 
+          onTaskAdded={() => { fetchStats(); setShowAddTask(false); }}
+          leads={schedulerLeads.length ? schedulerLeads : undefined}
+          agents={agents.length ? agents : (stats?.agents || AGENTS)}
+          userRole={user?.role}
+        />
+        <TaskProgressModal 
+          isOpen={showProgress} 
+          onClose={() => setShowProgress(false)} 
+          onUpdate={handleUpdateProgress} 
+          task={selectedTask}
+        />
+      </>
     );
   }
 
   return (
     <>
     <div style={{
-      display: 'flex', flexDirection: 'column', gap: 22, paddingBottom: 60,
+      display: 'flex', flexDirection: 'column', gap: 24, paddingBottom: 60,
       minHeight: '100vh',
+      background: C.bg,
       backgroundImage: `
-        radial-gradient(ellipse at 20% 0%, rgba(139,92,246,0.08) 0%, transparent 50%),
-        radial-gradient(ellipse at 80% 10%, rgba(34,211,238,0.06) 0%, transparent 40%)
+        radial-gradient(circle at 15% 0%, rgba(139,92,246,0.05) 0%, transparent 40%),
+        radial-gradient(circle at 85% 20%, rgba(34,211,238,0.04) 0%, transparent 35%),
+        linear-gradient(180deg, rgba(139,92,246,0.01) 0%, transparent 100%)
       `,
+      fontFamily: 'Inter, sans-serif'
     }}>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes livePulse{0%,100%{opacity:1}50%{opacity:0.5}}`}</style>
 
       {/* ── HEADER ── */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginTop: 12 }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
             <SparklesIcon style={{ width: 14, height: 14, color: C.purple }} />
-            <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.4em', textTransform: 'uppercase', color: C.purple }}>
+            <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.3em', textTransform: 'uppercase', color: C.purple }}>
               {isAdmin ? 'Operations Command' : 'My Workspace'}
             </span>
           </div>
           <h1 style={{
-            margin: 0, fontSize: 36, fontWeight: 900, letterSpacing: '-0.03em', lineHeight: 1.05,
-            background: `linear-gradient(135deg, ${C.text} 0%, #a78bfa 60%, ${C.cyan} 100%)`,
-            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+            margin: 0, fontSize: 36, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1.1, color: '#ffffff',
+            textShadow: '0 4px 20px rgba(0,0,0,0.5)',
           }}>
             {isAdmin ? 'Executive Command' : `${getGreeting()}, ${user?.name?.split(' ')[0]}`}
           </h1>
-          <p style={{ fontSize: 13, color: C.sub, marginTop: 6 }}>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginTop: 6, fontWeight: 500 }}>
             {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
         </div>
@@ -1063,14 +1269,14 @@ const Dashboard = () => {
       <div style={{ display: 'grid', gridTemplateColumns: '400px 1fr', gap: 16, alignItems: 'start' }}>
         <PipelineFunnel data={livePipeline} />
         {isAdmin
-          ? <Leaderboard agents={AGENTS} liveData={stats?.leadsPerAgent} />
+          ? <LeadProgressFeed progressLog={stats?.recentLeadProgress || []} />
           : <LeadsFeed leads={leads} onRespondAssignment={handleRespondAssignment} isAgent={!isAdmin} />}
       </div>
 
       {/* ── LEADS + TASKS/FOLLOWUPS ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 16, alignItems: 'start' }}>
-        <LeadsFeed leads={leads} onRespondAssignment={handleRespondAssignment} isAgent={!isAdmin} />
-        {isAdmin ? <AdminTasksWidget tasks={tasks} /> : <FollowUps followUps={todayFollowUps} onComplete={completeFollowUp} />}
+        {isAdmin ? <Leaderboard agents={AGENTS} liveData={stats?.leadsPerAgent} /> : <LeadsFeed leads={leads} onRespondAssignment={handleRespondAssignment} isAgent={!isAdmin} />}
+        {isAdmin ? <AdminTasksWidget tasks={tasks} onViewTask={(t) => { setSelectedTask(t); setShowTaskDetails(true); }} /> : <FollowUps followUps={todayFollowUps} onComplete={completeFollowUp} />}
       </div>
 
     </div>
@@ -1090,6 +1296,17 @@ const Dashboard = () => {
       leads={schedulerLeads.length ? schedulerLeads : undefined}
       agents={agents.length ? agents : (stats?.agents || AGENTS)}
       userRole={user?.role}
+    />
+    <TaskProgressModal 
+      isOpen={showProgress} 
+      onClose={() => setShowProgress(false)} 
+      onUpdate={handleUpdateProgress} 
+      task={selectedTask}
+    />
+    <TaskDetailsModal
+      isOpen={showTaskDetails}
+      onClose={() => setShowTaskDetails(false)}
+      task={selectedTask}
     />
     </>
   );

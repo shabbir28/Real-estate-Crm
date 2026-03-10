@@ -83,6 +83,26 @@ const leadSchema = new mongoose.Schema(
     nextFollowUp: {
       type: Date,
     },
+    progressLog: [
+      {
+        status: {
+          type: String,
+          enum: ["new", "contacted", "visit", "negotiation", "closed", "lost"],
+        },
+        notes: {
+          type: String,
+          trim: true,
+        },
+        updatedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+        timestamp: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
   },
   {
     timestamps: true,

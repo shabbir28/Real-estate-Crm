@@ -168,3 +168,43 @@ exports.respondToTask = async (req, res) => {
     res.status(400).json({ success: false, message: error.message });
   }
 };
+// @desc    Update task progress and remarks
+// @route   PATCH /api/tasks/:id/progress
+// @access  Private
+exports.updateTaskProgress = async (req, res) => {
+  try {
+    const { status, remarks } = req.body;
+    const validStatuses = ["pending", "completed", "delayed", "declined"];
+
+    if (status && !validStatuses.includes(status)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid status" });
+    }
+
+    let task = await Task.findById(req.params.id);
+
+    if (!task) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Task not found" });
+    }
+
+    // Only the assigned agent can update progress
+    if (task.agentId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to update progress for this task",
+      });
+    }
+
+    if (status) task.status = status;
+    if (remarks !== undefined) task.remarks = remarks;
+
+    await task.save();
+
+    res.status(200).json({ success: true, data: task });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};

@@ -50,7 +50,7 @@ app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/leads", leadRoutes);
-app.use("/api/properties/match", propertyMatchingRoutes); // Mount before standard properties to avoid /:id collision
+app.use("/api/properties", propertyMatchingRoutes); // Mount before standard properties to avoid /:id collision
 app.use("/api/properties", propertyRoutes);
 app.use("/api/deals", dealRoutes);
 app.use("/api/activities", activityRoutes);

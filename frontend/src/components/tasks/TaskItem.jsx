@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircleIcon, PhoneIcon, CalendarIcon, ClipboardDocumentListIcon } from '@heroicons/react/24/outline';
+import { CheckCircleIcon, PhoneIcon, CalendarIcon, ClipboardDocumentListIcon, BoltIcon } from '@heroicons/react/24/outline';
 
 const TYPE_ICONS = {
   followup: PhoneIcon,
@@ -8,13 +8,23 @@ const TYPE_ICONS = {
   task: ClipboardDocumentListIcon,
 };
 
-const TaskItem = ({ task, onComplete, onRespondTask }) => {
+const TaskItem = ({ task, onComplete, onRespondTask, onUpdateProgress }) => {
   const Icon = TYPE_ICONS[task.type] || ClipboardDocumentListIcon;
   const isCompleted = task.status === 'completed';
+  const isPending = task.status === 'pending';
   
   const due = new Date(task.dueDate);
   const timeStr = due.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   const dateStr = due.toLocaleDateString([], { month: 'short', day: 'numeric' });
+
+  const getStatusColor = (s) => {
+    switch(s) {
+      case 'completed': return '#10b981';
+      case 'delayed': return '#f59e0b';
+      case 'declined': return '#f43f5e';
+      default: return '#8b5cf6';
+    }
+  };
   
   return (
     <div style={{
@@ -51,11 +61,22 @@ const TaskItem = ({ task, onComplete, onRespondTask }) => {
               Assigned to you
             </span>
           )}
+          {task.status !== 'pending' && task.status !== 'completed' && (
+            <span style={{ fontSize: 9, color: getStatusColor(task.status), fontWeight: 700, background: `${getStatusColor(task.status)}15`, padding: '2px 6px', borderRadius: 4, textTransform: 'capitalize' }}>
+              {task.status}
+            </span>
+          )}
         </div>
         
         {task.description && (
           <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 4, textDecoration: isCompleted ? 'line-through' : 'none' }}>
             {task.description}
+          </div>
+        )}
+        
+        {task.remarks && (
+          <div style={{ fontSize: 10, color: getStatusColor(task.status), fontStyle: 'italic', marginBottom: 4, background: `${getStatusColor(task.status)}08`, padding: '4px 8px', borderRadius: 6 }}>
+            "{task.remarks}"
           </div>
         )}
         
@@ -65,21 +86,26 @@ const TaskItem = ({ task, onComplete, onRespondTask }) => {
       </div>
       
       {!isCompleted && task.assignmentStatus !== 'assigned' && (
-        <button 
-          onClick={() => onComplete(task._id)}
-          style={{
-            width: 28, height: 28, borderRadius: '6px',
-            background: 'rgba(20,184,166,0.1)', color: '#14b8a6',
-            border: 'none',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', transition: 'all 0.2s', flexShrink: 0
-          }}
-          title="Complete Task"
-          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(20,184,166,0.2)' }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(20,184,166,0.1)' }}
-        >
-          <CheckCircleIcon style={{ width: 16, height: 16 }} />
-        </button>
+        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+          <button 
+            onClick={() => onUpdateProgress(task)}
+            style={{
+              padding: '6px 14px', borderRadius: '10px',
+              background: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)', 
+              color: '#000',
+              border: 'none',
+              fontSize: 11, fontWeight: 800,
+              cursor: 'pointer', transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              display: 'flex', alignItems: 'center', gap: 6,
+              boxShadow: '0 4px 12px rgba(20, 184, 166, 0.2)'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(20, 184, 166, 0.3)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 4px 12px rgba(20, 184, 166, 0.2)'; }}
+          >
+            <BoltIcon style={{ width: 14, height: 14 }} />
+            Update Status
+          </button>
+        </div>
       )}
 
       {task.assignmentStatus === 'assigned' && onRespondTask && (
@@ -101,6 +127,7 @@ const TaskItem = ({ task, onComplete, onRespondTask }) => {
         </div>
       )}
     </div>
+
   );
 };
 

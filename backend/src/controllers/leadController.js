@@ -68,17 +68,6 @@ const getLead = async (req, res) => {
       });
     }
 
-    // Check permissions
-    if (
-      req.user.role === "agent" &&
-      lead.assignedAgent?.toString() !== req.user._id.toString()
-    ) {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied",
-      });
-    }
-
     res.json({
       success: true,
       data: lead,
@@ -174,6 +163,20 @@ const updateLead = async (req, res) => {
       } else {
         // If unassigning
         req.body.assignmentStatus = "unassigned";
+      }
+    }
+
+    // Keep track of the progress log if status or notes are provided
+    if (req.body.status || req.body.notes) {
+      if (!req.body.progressLog) {
+        req.body.$push = {
+          progressLog: {
+            status: req.body.status || lead.status,
+            notes: req.body.notes || "Lead updated",
+            updatedBy: req.user._id,
+            timestamp: new Date(),
+          },
+        };
       }
     }
 
@@ -358,6 +361,15 @@ const updateLeadStatus = async (req, res) => {
     }
 
     lead.status = status;
+
+    // Also push to progressLog
+    lead.progressLog.push({
+      status: status,
+      notes: "Status updated via quick action",
+      updatedBy: req.user._id,
+      timestamp: new Date(),
+    });
+
     await lead.save();
 
     res.json({
